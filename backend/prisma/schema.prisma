@@ -1,0 +1,35 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Player {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  totalWins Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model Match {
+  id            String   @id @default(uuid())
+  player1Id     String
+  player2Id     String
+  score1        Int      @default(0)
+  score2        Int      @default(0)
+  status        String
+  currentTurnId String   // ✅ MUST BE HERE
+  createdAt     DateTime @default(now())
+}
+
+model Round {
+  id            String   @id @default(uuid())
+  matchId       String
+  word          String
+  revealedTiles Boolean[]
+  winnerId      String?
+  createdAt     DateTime @default(now())
+}

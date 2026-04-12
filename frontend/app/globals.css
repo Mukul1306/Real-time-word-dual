@@ -1,0 +1,144 @@
+/* RESET */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: Arial;
+}
+
+/* CONTAINER */
+.container {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #f3f4f6;
+}
+
+/* CARD */
+.card {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+/* TITLE */
+.title {
+  font-size: 24px;
+  margin-bottom: 15px;
+}
+
+/* INPUT */
+.input {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+/* BUTTON */
+.button {
+  margin-top: 10px;
+  padding: 10px;
+  width: 100%;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.button:hover {
+  background: #2563eb;
+}
+
+.small {
+  width: auto;
+  padding: 10px 15px;
+}
+
+/* MATCH */
+.match {
+  margin-top: 15px;
+}
+
+/* SCORE */
+.score {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+.label {
+  font-size: 12px;
+  color: gray;
+}
+
+.name {
+  font-weight: bold;
+}
+
+/* WORD */
+.word {
+  font-size: 22px;
+  letter-spacing: 8px;
+  margin-top: 10px;
+}
+
+/* TIMER */
+.timer {
+  color: red;
+  margin-top: 5px;
+}
+
+/* GUESS */
+.guess-box {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* RESULT */
+.result {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.correct {
+  background: green;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 5px;
+}
+
+.wrong {
+  background: red;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 5px;
+}
+
+/* MESSAGE */
+.message {
+  margin-top: 15px;
+  color: #2563eb;
+  font-weight: bold;
+}
+
+/* MOBILE */
+@media (max-width: 500px) {
+  .card {
+    padding: 15px;
+  }
+
+  .word {
+    font-size: 18px;
+  }
+}
