@@ -21,10 +21,10 @@ model Match {
   score1        Int      @default(0)
   score2        Int      @default(0)
   status        String
-  currentTurnId String   // ✅ MUST BE HERE
+  currentTurnId String
+  roundNumber   Int      @default(1)   // 🔥 NEW
   createdAt     DateTime @default(now())
 }
-
 model Round {
   id            String   @id @default(uuid())
   matchId       String

@@ -30,11 +30,18 @@ export class GameGateway {
   ) {
     const result = await this.gameService.joinGame(data.username);
 
+    // 🔥 store player in socket
+    client.data.player = result.player;
+
     // 🔹 First player waits
     if (!result.match) {
       this.waitingClient = client;
 
-      client.emit('gameUpdate', result);
+      client.emit('gameUpdate', {
+        message: result.message,
+        player: result.player,
+      });
+
       return;
     }
 
@@ -49,12 +56,30 @@ export class GameGateway {
       this.waitingClient.join(roomId);
     }
 
+    // 🔥 SEND SEPARATE DATA TO EACH PLAYER
+
+    // 👉 Player 2 (current client)
+    client.emit('gameUpdate', {
+      message: result.message,
+      match: result.match,
+      round: result.round,
+      player: client.data.player, // ✅ correct player
+    });
+
+    // 👉 Player 1 (waiting client)
+    if (this.waitingClient) {
+      this.waitingClient.emit('gameUpdate', {
+        message: result.message,
+        match: result.match,
+        round: result.round,
+        player: this.waitingClient.data.player, // ✅ correct player
+      });
+    }
+
+    // 🔥 reset waiting
     this.waitingClient = null;
 
-    // 🔥 Send match to both
-    this.server.to(roomId).emit('gameUpdate', result);
-
-    // 🔥 Start timer for first turn
+    // 🔥 Start timer
     this.startTimer(roomId);
   }
 
@@ -69,16 +94,15 @@ export class GameGateway {
 
     if (!result.matchId) return;
 
-    // 🔥 Send update to room
+    // 🔥 Send update to BOTH (this is fine)
     this.server.to(result.matchId).emit('gameUpdate', result);
 
-    // 🔥 Restart timer for next player turn
+    // 🔥 Restart timer
     this.startTimer(result.matchId);
   }
 
   // 🔥 TIMER (5 sec PER TURN)
   startTimer(roomId: string) {
-    // 🔥 Clear old timer
     if (this.activeTimers.has(roomId)) {
       clearInterval(this.activeTimers.get(roomId)!);
     }
@@ -98,7 +122,6 @@ export class GameGateway {
           message: "⏰ Time Up!",
         });
 
-        // 🔥 OPTIONAL: auto switch turn on timeout
         this.handleTimeout(roomId);
       }
     }, 1000);
@@ -106,7 +129,7 @@ export class GameGateway {
     this.activeTimers.set(roomId, interval);
   }
 
-  // 🔥 OPTIONAL: AUTO TURN SWITCH ON TIMEOUT
+  // 🔥 AUTO TURN SWITCH
   async handleTimeout(roomId: string) {
     try {
       const match = await this.gameService.getMatchById(roomId);

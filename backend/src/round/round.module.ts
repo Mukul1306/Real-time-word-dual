@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
 import { RoundService } from './round.service';
 import { RoundController } from './round.controller';
-import { PrismaModule } from '../prisma/prisma.module';
+import { PrismaService } from '../prisma/prisma.service';
+
 @Module({
-  imports: [PrismaModule],  // IMPORTANT
-  providers: [RoundService],
-  controllers: [RoundController]
+  controllers: [RoundController],
+  providers: [RoundService, PrismaService],
+  exports: [RoundService],
 })
 export class RoundModule {}

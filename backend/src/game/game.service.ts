@@ -3,9 +3,17 @@ import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class GameService {
-private static playersQueue: any[] = [];
+  private static playersQueue: any[] = [];
+
+  // 🔥 WORD LIST
+  private words = ["GAME", "CODE", "PLAY", "WORD", "NODE"];
 
   constructor(private prisma: PrismaService) {}
+
+  // 🔥 GET RANDOM WORD
+  private getRandomWord() {
+    return this.words[Math.floor(Math.random() * this.words.length)];
+  }
 
   // 🔥 JOIN GAME
   async joinGame(username: string) {
@@ -18,52 +26,66 @@ private static playersQueue: any[] = [];
         data: { username }
       });
     }
-const alreadyInQueue = GameService.playersQueue.find(
-  (p) => p.id === player.id
-);
 
-if (alreadyInQueue) {
-  return { message: "Player already in queue", player };
-}
-
-GameService.playersQueue.push(player);
-
-// 🔥 MATCH CREATE
-if (GameService.playersQueue.length === 2) {
-  const [player1, player2] = GameService.playersQueue;
-
-  const match = await this.prisma.match.create({
-    data: {
-      player1Id: player1.id,
-      player2Id: player2.id,
-      status: "ONGOING",
-      score1: 0,
-      score2: 0,
-      currentTurnId: player1.id
+    const exists = GameService.playersQueue.find(p => p.id === player.id);
+    if (exists) {
+      return { message: "Already waiting...", player };
     }
-  });
 
-  const round = await this.prisma.round.create({
-    data: {
-      matchId: match.id,
-      word: "GAME",
-      revealedTiles: [false, false, false, false]
+    GameService.playersQueue.push(player);
+
+    console.log("Queue:", GameService.playersQueue.map(p => p.username));
+
+    // 🔥 CREATE MATCH
+    if (GameService.playersQueue.length === 2) {
+      try {
+        const [player1, player2] = GameService.playersQueue;
+
+        const match = await this.prisma.match.create({
+          data: {
+            player1Id: player1.id,
+            player2Id: player2.id,
+            status: "ONGOING",
+            score1: 0,
+            score2: 0,
+            currentTurnId: player1.id
+          }
+        });
+
+        // 🔥 FIRST RANDOM WORD
+        const word = this.getRandomWord();
+
+        const round = await this.prisma.round.create({
+          data: {
+            matchId: match.id,
+            word,
+            revealedTiles: Array(word.length).fill(false)
+          }
+        });
+
+        GameService.playersQueue = [];
+
+        return {
+          message: "Match started",
+          match: {
+            ...match,
+            player1Name: player1.username,
+            player2Name: player2.username
+          },
+          round,
+          player
+        };
+
+      } catch (error) {
+        console.log("❌ Match error:", error);
+        GameService.playersQueue = [];
+
+        return {
+          message: "Server error, try again",
+          player
+        };
+      }
     }
-  });
-
-  GameService.playersQueue = []; // 🔥 FIXED
-
-  return {
-    message: "Match started",
-    match: {
-      ...match,
-      player1Name: player1.username,
-      player2Name: player2.username
-    },
-    round,
-    player
-  };
-}
 
     return {
       message: "Waiting for another player...",
@@ -71,7 +93,7 @@ if (GameService.playersQueue.length === 2) {
     };
   }
 
-  // 🔥 SUBMIT GUESS (TURN BASED)
+  // 🔥 SUBMIT GUESS
   async submitGuess(roundId: string, guess: string, playerId: string) {
     const round = await this.prisma.round.findUnique({
       where: { id: roundId }
@@ -95,7 +117,6 @@ if (GameService.playersQueue.length === 2) {
       };
     }
 
-    // 🔥 FETCH PLAYERS
     const player1 = await this.prisma.player.findUnique({
       where: { id: match.player1Id }
     });
@@ -104,26 +125,19 @@ if (GameService.playersQueue.length === 2) {
       where: { id: match.player2Id }
     });
 
-    // 🔥 GUESS LOGIC
     const resultArray = this.checkGuess(round.word, guess);
     const isCorrect = resultArray.every(v => v === true);
 
-    // 🔥 NEXT TURN
     const nextTurn =
       match.player1Id === playerId
         ? match.player2Id
         : match.player1Id;
 
-    // 🎉 CORRECT
+    // 🎉 CORRECT GUESS
     if (isCorrect) {
-      await this.prisma.round.update({
-        where: { id: roundId },
-        data: { winnerId: playerId }
-      });
 
       let updatedMatch;
 
-      // 🔥 FIXED WINNER BUG (NO ELSE SHORTCUT)
       if (match.player1Id === playerId) {
         updatedMatch = await this.prisma.match.update({
           where: { id: match.id },
@@ -132,7 +146,7 @@ if (GameService.playersQueue.length === 2) {
             currentTurnId: nextTurn
           }
         });
-      } else if (match.player2Id === playerId) {
+      } else {
         updatedMatch = await this.prisma.match.update({
           where: { id: match.id },
           data: {
@@ -142,20 +156,58 @@ if (GameService.playersQueue.length === 2) {
         });
       }
 
+      // 🔥 COUNT ROUNDS
+      const rounds = await this.prisma.round.findMany({
+        where: { matchId: match.id }
+      });
+
+      // 🔥 GAME OVER AFTER 3 ROUNDS
+      if (rounds.length >= 3) {
+        let winner = "Draw";
+
+        if (updatedMatch.score1 > updatedMatch.score2) {
+          winner = player1?.username || "Player 1";
+        } else if (updatedMatch.score2 > updatedMatch.score1) {
+          winner = player2?.username || "Player 2";
+        }
+
+        return {
+          message: `🏆 Winner: ${winner}`,
+          matchId: match.id,
+          match: {
+            ...updatedMatch,
+            player1Name: player1?.username,
+            player2Name: player2?.username
+          },
+          gameOver: true
+        };
+      }
+
+      // 🔥 NEW RANDOM WORD
+      const newWord = this.getRandomWord();
+
+      const newRound = await this.prisma.round.create({
+        data: {
+          matchId: match.id,
+          word: newWord,
+          revealedTiles: Array(newWord.length).fill(false)
+        }
+      });
+
       return {
-        message: "🎉 Correct Guess!",
+        message: "🎉 Correct! Next Round",
         matchId: match.id,
         match: {
           ...updatedMatch,
           player1Name: player1?.username,
           player2Name: player2?.username
         },
-        round: { ...round, winnerId: playerId },
+        round: newRound,
         result: resultArray
       };
     }
 
-    // ❌ WRONG → SWITCH TURN
+    // ❌ WRONG GUESS
     const updatedMatch = await this.prisma.match.update({
       where: { id: match.id },
       data: { currentTurnId: nextTurn }
@@ -174,7 +226,7 @@ if (GameService.playersQueue.length === 2) {
     };
   }
 
-  // 🔥 TIMER SUPPORT (for gateway)
+  // 🔥 TIMER SUPPORT
   async getMatchById(matchId: string) {
     return this.prisma.match.findUnique({
       where: { id: matchId }

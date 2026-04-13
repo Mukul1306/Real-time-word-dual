@@ -5,20 +5,14 @@ import { PrismaService } from '../prisma/prisma.service';
 export class RoundService {
   constructor(private prisma: PrismaService) {}
 
-  create(matchId: string, word: string) {
+  // 🔥 CREATE ROUND
+  async create(matchId: string, word: string) {
     return this.prisma.round.create({
       data: {
         matchId,
         word,
-        revealedTiles: Array(word.length).fill(false)
+        revealedTiles: Array(word.length).fill(false),
       },
-    });
-  }
-
-  setWinner(roundId: string, playerId: string) {
-    return this.prisma.round.update({
-      where: { id: roundId },
-      data: { winnerId: playerId }
     });
   }
 }

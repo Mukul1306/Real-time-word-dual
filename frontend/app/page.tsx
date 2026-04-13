@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { io } from "socket.io-client";
+import { io, Socket } from "socket.io-client";
 import "./globals.css";
 
-const socket = io("http://localhost:3001");
+const socket: Socket = io("http://localhost:3001");
 
 export default function Home() {
   const [username, setUsername] = useState("");
@@ -15,20 +15,22 @@ export default function Home() {
   const [playerId, setPlayerId] = useState("");
   const [resultArray, setResultArray] = useState<boolean[]>([]);
   const [time, setTime] = useState(5);
-  const [isPlayer1, setIsPlayer1] = useState(false);
+  const [roundCount, setRoundCount] = useState(1);
 
   // 🔥 JOIN GAME
   const joinGame = () => {
-    if (!username) {
+    if (!username.trim()) {
       setMessage("Enter username");
       return;
     }
     socket.emit("joinGame", { username });
   };
 
-  // 🔥 GUESS
+  // 🔥 SUBMIT GUESS
   const submitGuess = () => {
-    if (!round || guess.length !== round.word.length) {
+    if (!round) return;
+
+    if (guess.length !== round.word.length) {
       setMessage(`Enter ${round.word.length} letter word`);
       return;
     }
@@ -47,18 +49,28 @@ export default function Home() {
     socket.on("gameUpdate", (data: any) => {
       if (data.message) setMessage(data.message);
 
-      if (data.player && data.match) {
+      // ✅ SET PLAYER ID
+      if (data.player && data.player.username === username) {
         setPlayerId(data.player.id);
+      }
 
-        if (data.match.player1Id === data.player.id) {
-          setIsPlayer1(true);
-        } else {
-          setIsPlayer1(false);
-        }
+      // ✅ GAME OVER RESET
+      if (data.gameOver) {
+        setMessage(data.message);
+        setMatch(null);
+        setRound(null);
+        setResultArray([]);
+        setRoundCount(1);
+        return;
       }
 
       if (data.match) setMatch(data.match);
-      if (data.round) setRound(data.round);
+
+      if (data.round) {
+        setRound(data.round);
+        setRoundCount((prev) => prev + 1); // 🔥 increase round
+      }
+
       if (data.result) setResultArray(data.result);
     });
 
@@ -75,9 +87,10 @@ export default function Home() {
       socket.off("timer");
       socket.off("timerEnd");
     };
-  }, []);
+  }, [username]);
 
   // 🔥 TURN LOGIC
+  const isPlayer1 = match?.player1Id === playerId;
   const isMyTurn = match?.currentTurnId === playerId;
 
   return (
@@ -105,32 +118,50 @@ export default function Home() {
           <div className="match">
             <h2>Match Started</h2>
 
-            {/* 🔥 TURN DISPLAY */}
-            <p className="turn">
-              {isMyTurn ? "🟢 Your Turn" : "⏳ Opponent Turn"}
+            {/* ROUND */}
+            <p style={{ fontWeight: "bold" }}>
+              🔢 Round: {roundCount > 3 ? 3 : roundCount}
             </p>
 
+            {/* TURN */}
+            <p className="turn">
+              {isMyTurn ? "🟢 Your Turn" : "🔴 Opponent Turn"}
+            </p>
+
+            {/* SCORE */}
             <div className="score">
               <div>
-                <p className="label">{isPlayer1 ? "You" : "Opponent"}</p>
-                <p className="name">
-                  {isPlayer1 ? match.player1Name : match.player2Name}
+                <p>You</p>
+                <p>
+                  {isPlayer1
+                    ? match.player1Name
+                    : match.player2Name}
                 </p>
-                <p>{isPlayer1 ? match.score1 : match.score2}</p>
+                <p>
+                  {isPlayer1
+                    ? match.score1
+                    : match.score2}
+                </p>
               </div>
 
               <div>
-                <p className="label">{isPlayer1 ? "Opponent" : "You"}</p>
-                <p className="name">
-                  {isPlayer1 ? match.player2Name : match.player1Name}
+                <p>Opponent</p>
+                <p>
+                  {isPlayer1
+                    ? match.player2Name
+                    : match.player1Name}
                 </p>
-                <p>{isPlayer1 ? match.score2 : match.score1}</p>
+                <p>
+                  {isPlayer1
+                    ? match.score2
+                    : match.score1}
+                </p>
               </div>
             </div>
           </div>
         )}
 
-        {/* ROUND */}
+        {/* ROUND UI */}
         {round && (
           <>
             <p className="word">{"_ ".repeat(round.word.length)}</p>
@@ -141,15 +172,20 @@ export default function Home() {
               <input
                 className="input"
                 value={guess}
-                disabled={!isMyTurn} // 🔥 DISABLE INPUT
+                disabled={!isMyTurn}
+                placeholder={
+                  isMyTurn
+                    ? "Enter guess"
+                    : "Wait for your turn..."
+                }
                 onChange={(e) =>
                   setGuess(e.target.value.toUpperCase())
                 }
-                placeholder="Enter guess"
               />
+
               <button
-                className="button small"
-                disabled={!isMyTurn} // 🔥 DISABLE BUTTON
+                disabled={!isMyTurn}
+                className="button"
                 onClick={submitGuess}
               >
                 Go
@@ -160,11 +196,8 @@ export default function Home() {
             {resultArray.length > 0 && (
               <div className="result">
                 {resultArray.map((val, i) => (
-                  <span
-                    key={i}
-                    className={val ? "correct" : "wrong"}
-                  >
-                    {val ? "✓" : "✗"}
+                  <span key={i}>
+                    {val ? "✅" : "❌"}
                   </span>
                 ))}
               </div>
@@ -172,6 +205,7 @@ export default function Home() {
           </>
         )}
 
+        {/* MESSAGE */}
         <p className="message">{message}</p>
       </div>
     </div>
